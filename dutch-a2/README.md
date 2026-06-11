@@ -33,6 +33,11 @@ Reference materials:
 - [Core vocabulary](core-vocabulary.md) — ~700 high-frequency words organized by theme.
 - [Resources](resources.md) — recommended apps, podcasts, video, graded readers, and exam info.
 
+**Interactive tutor app:** the [`app/`](app/README.md) folder contains a small program you can
+run on your own computer that turns these modules into an interactive, Claude-powered tutor —
+it generates exercises, grades your answers live, tracks per-topic scores, and automatically
+focuses on whatever you find difficult. See [app/README.md](app/README.md) for setup.
+
 ## How to use this course
 
 Each module covers two weeks and contains:

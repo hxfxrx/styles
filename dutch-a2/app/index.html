@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dutch A2 Tutor</title>
+<style>
+  :root {
+    --orange: #e85d04; --orange-dark: #c44a00; --ink: #1f2430; --muted: #6b7280;
+    --bg: #faf7f2; --card: #ffffff; --green: #15803d; --red: #b91c1c;
+    --green-bg: #ecfdf3; --red-bg: #fef2f2; --border: #e5e0d8;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Georgia, 'Times New Roman', serif; background: var(--bg);
+         color: var(--ink); line-height: 1.5; }
+  header { background: var(--ink); color: #fff; padding: 14px 20px; display: flex;
+           align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 1.15rem; margin: 0; font-weight: 600; }
+  header h1 em { color: var(--orange); font-style: italic; }
+  #livescore { margin-left: auto; font-size: .95rem; color: #d1d5db; }
+  #livescore b { color: #fff; }
+  nav { display: flex; gap: 4px; padding: 10px 20px 0; max-width: 760px; margin: 0 auto; }
+  nav button { font: inherit; border: 1px solid var(--border); border-bottom: none;
+               background: #f1ece4; padding: 8px 18px; border-radius: 10px 10px 0 0;
+               cursor: pointer; color: var(--muted); }
+  nav button.active { background: var(--card); color: var(--ink); font-weight: 600; }
+  main { max-width: 760px; margin: 0 auto 60px; background: var(--card);
+         border: 1px solid var(--border); border-radius: 0 12px 12px 12px; padding: 24px; }
+  h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  select, input[type=text], textarea {
+    font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+    background: #fff; width: 100%; }
+  select { width: auto; }
+  textarea { min-height: 70px; resize: vertical; }
+  .btn { font: inherit; background: var(--orange); color: #fff; border: none;
+         padding: 9px 20px; border-radius: 8px; cursor: pointer; }
+  .btn:hover { background: var(--orange-dark); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.ghost { background: transparent; color: var(--orange); border: 1px solid var(--orange); }
+  .card { border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin: 14px 0; }
+  .tag { display: inline-block; font-size: .75rem; padding: 2px 10px; border-radius: 999px;
+         background: #f1ece4; color: var(--muted); margin-right: 6px; }
+  .question { font-size: 1.15rem; margin: 10px 0 14px; }
+  .options label { display: block; padding: 8px 12px; border: 1px solid var(--border);
+                   border-radius: 8px; margin: 6px 0; cursor: pointer; }
+  .options label:has(input:checked) { border-color: var(--orange); background: #fff7f0; }
+  .feedback { border-radius: 10px; padding: 14px 16px; margin-top: 14px; }
+  .feedback.good { background: var(--green-bg); border: 1px solid #bbe5c8; }
+  .feedback.bad { background: var(--red-bg); border: 1px solid #f3c6c6; }
+  .feedback .score { font-size: 1.3rem; font-weight: 700; }
+  .feedback.good .score { color: var(--green); } .feedback.bad .score { color: var(--red); }
+  .bar { background: #f1ece4; border-radius: 6px; height: 14px; overflow: hidden; }
+  .bar > div { height: 100%; background: var(--orange); }
+  .topicrow { display: grid; grid-template-columns: 170px 1fr 90px; gap: 10px;
+              align-items: center; margin: 7px 0; font-size: .92rem; }
+  .weak { color: var(--red); font-weight: 600; }
+  #chatlog { max-height: 420px; overflow-y: auto; padding: 4px; }
+  .msg { margin: 10px 0; max-width: 85%; padding: 10px 14px; border-radius: 12px; }
+  .msg.user { margin-left: auto; background: #fff7f0; border: 1px solid #f3d9c2; }
+  .msg.tutor { background: #f4f6f8; border: 1px solid var(--border); }
+  .msg .trans, .msg .corr { font-size: .85rem; color: var(--muted); margin-top: 6px; }
+  .msg .corr { color: var(--red); }
+  .spinner { color: var(--muted); font-style: italic; }
+  .error { color: var(--red); margin-top: 10px; }
+  .hint { color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Nederlands A2 <em>tutor</em></h1>
+  <span id="livescore">session: <b id="ss-score">–</b> avg · <b id="ss-count">0</b> answered ·
+    streak <b id="ss-streak">0</b></span>
+</header>
+
+<nav>
+  <button id="tab-practice" class="active" onclick="showTab('practice')">Oefenen</button>
+  <button id="tab-chat" onclick="showTab('chat')">Gesprek</button>
+  <button id="tab-progress" onclick="showTab('progress')">Voortgang</button>
+</nav>
+
+<main>
+  <!-- PRACTICE -->
+  <section id="practice">
+    <div class="row">
+      <label for="module">Module:</label>
+      <select id="module">
+        <option value="1">1 — Foundations</option>
+        <option value="2">2 — Everyday life</option>
+        <option value="3">3 — Out and about</option>
+        <option value="4">4 — Getting around</option>
+        <option value="5">5 — Past and future</option>
+        <option value="6">6 — Towards A2</option>
+      </select>
+      <button class="btn" id="new-ex" onclick="newExercise()">Nieuwe oefening</button>
+    </div>
+    <p class="hint">Exercises automatically target your weakest topics and adjust difficulty
+      to your recent scores.</p>
+    <div id="exercise-area"></div>
+    <div id="practice-error" class="error"></div>
+  </section>
+
+  <!-- CHAT -->
+  <section id="chat" style="display:none">
+    <h2>Free conversation — the tutor replies in simple Dutch and corrects your mistakes</h2>
+    <div id="chatlog"></div>
+    <div class="row" style="margin-top:12px">
+      <input type="text" id="chat-input" placeholder="Typ iets in het Nederlands… (e.g. Hallo! Ik heet …)"
+             style="flex:1" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="btn" id="chat-send" onclick="sendChat()">Stuur</button>
+    </div>
+    <div id="chat-error" class="error"></div>
+  </section>
+
+  <!-- PROGRESS -->
+  <section id="progress" style="display:none">
+    <h2>Mastery per topic</h2>
+    <p class="hint">Based on all your graded answers (stored locally in progress.json).
+      Topics in red are what the tutor is focusing on.</p>
+    <div id="topic-bars"></div>
+    <h2 style="margin-top:24px">Recent scores</h2>
+    <div id="recent"></div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let exercise = null, recentQuestions = [], session = {count:0, total:0, streak:0};
+let chatMessages = [];
+
+function showTab(name) {
+  for (const t of ['practice','chat','progress']) {
+    $(t).style.display = t === name ? '' : 'none';
+    $('tab-'+t).classList.toggle('active', t === name);
+  }
+  if (name === 'progress') renderProgress();
+}
+
+async function api(path, body) {
+  const res = await fetch(path, body
+    ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}
+    : undefined);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+function updateLiveScore() {
+  $('ss-count').textContent = session.count;
+  $('ss-streak').textContent = session.streak;
+  $('ss-score').textContent = session.count ? Math.round(session.total/session.count) : '–';
+}
+
+// ---------- practice ----------
+async function newExercise() {
+  $('practice-error').textContent = '';
+  $('new-ex').disabled = true;
+  $('exercise-area').innerHTML = '<p class="spinner">De tutor schrijft een oefening…</p>';
+  try {
+    exercise = await api('/api/exercise',
+      {module: +$('module').value, avoid: recentQuestions.slice(-8)});
+    recentQuestions.push(exercise.question);
+    renderExercise();
+  } catch (e) {
+    $('exercise-area').innerHTML = '';
+    $('practice-error').textContent = e.message;
+  } finally {
+    $('new-ex').disabled = false;
+  }
+}
+
+function renderExercise() {
+  const typeLabel = {multiple_choice:'multiple choice', fill_blank:'fill in the blank',
+    translate_to_dutch:'translate to Dutch', reorder:'put the words in order',
+    free_response:'free response'}[exercise.exercise_type] || exercise.exercise_type;
+  let answerHtml;
+  if (exercise.exercise_type === 'multiple_choice') {
+    answerHtml = '<div class="options">' + exercise.options.map((o,i) =>
+      `<label><input type="radio" name="opt" value="${escapeHtml(o)}"> ${escapeHtml(o)}</label>`
+    ).join('') + '</div>';
+  } else {
+    const words = exercise.exercise_type === 'reorder'
+      ? `<p class="hint">Words: ${exercise.options.map(escapeHtml).join(' · ')}</p>` : '';
+    answerHtml = words + '<textarea id="answer" placeholder="Jouw antwoord…"></textarea>';
+  }
+  $('exercise-area').innerHTML = `
+    <div class="card">
+      <span class="tag">${escapeHtml(exercise.topic.replaceAll('_',' '))}</span>
+      <span class="tag">${typeLabel}</span>
+      <span class="tag">${exercise.difficulty}</span>
+      <p class="hint" style="margin:10px 0 0">${escapeHtml(exercise.instructions)}</p>
+      <p class="question">${escapeHtml(exercise.question)}</p>
+      ${answerHtml}
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="submit" onclick="submitAnswer()">Controleer</button>
+      </div>
+      <div id="feedback"></div>
+    </div>`;
+  const ta = $('answer'); if (ta) ta.focus();
+}
+
+async function submitAnswer() {
+  const answer = exercise.exercise_type === 'multiple_choice'
+    ? (document.querySelector('input[name=opt]:checked') || {}).value
+    : $('answer').value.trim();
+  if (!answer) return;
+  $('submit').disabled = true;
+  $('feedback').innerHTML = '<p class="spinner">Nakijken…</p>';
+  try {
+    const g = await api('/api/grade', {module:+$('module').value, exercise, answer});
+    session.count++; session.total += g.score;
+    session.streak = g.score >= 70 ? session.streak + 1 : 0;
+    updateLiveScore();
+    $('feedback').innerHTML = `
+      <div class="feedback ${g.score >= 70 ? 'good' : 'bad'}">
+        <span class="score">${g.score}/100</span>
+        ${g.score >= 70 ? '— Goed zo!' : '— Bijna!'}
+        <p style="margin:8px 0 4px">${escapeHtml(g.feedback)}</p>
+        <p style="margin:4px 0 0"><b>Model answer:</b> ${escapeHtml(g.correct_answer)}</p>
+        <div class="row" style="margin-top:12px">
+          <button class="btn" onclick="newExercise()">Volgende oefening →</button>
+        </div>
+      </div>`;
+  } catch (e) {
+    $('feedback').innerHTML = '';
+    $('practice-error').textContent = e.message;
+    $('submit').disabled = false;
+  }
+}
+
+// ---------- chat ----------
+function addMsg(role, html) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = html;
+  $('chatlog').appendChild(div);
+  $('chatlog').scrollTop = $('chatlog').scrollHeight;
+  return div;
+}
+
+async function sendChat() {
+  const text = $('chat-input').value.trim();
+  if (!text) return;
+  $('chat-error').textContent = '';
+  $('chat-input').value = '';
+  $('chat-send').disabled = true;
+  addMsg('user', escapeHtml(text));
+  chatMessages.push({role:'user', content:text});
+  const pending = addMsg('tutor', '<span class="spinner">…</span>');
+  try {
+    const r = await api('/api/chat', {messages: chatMessages});
+    chatMessages.push({role:'assistant', content: r.reply});
+    pending.innerHTML = escapeHtml(r.reply)
+      + (r.correction ? `<div class="corr">✏️ ${escapeHtml(r.correction)}</div>` : '')
+      + `<div class="trans">${escapeHtml(r.translation)}</div>`;
+  } catch (e) {
+    pending.remove();
+    chatMessages.pop();
+    $('chat-error').textContent = e.message;
+  } finally {
+    $('chat-send').disabled = false;
+    $('chat-input').focus();
+  }
+}
+
+// ---------- progress ----------
+async function renderProgress() {
+  try {
+    const p = await api('/api/progress');
+    const topics = Object.entries(p.topics).sort((a,b) => a[1].ema - b[1].ema);
+    $('topic-bars').innerHTML = topics.length ? topics.map(([name,t]) => {
+      const pct = Math.round(t.ema * 100);
+      return `<div class="topicrow">
+        <span class="${pct < 55 ? 'weak' : ''}">${escapeHtml(name.replaceAll('_',' '))}</span>
+        <div class="bar"><div style="width:${pct}%"></div></div>
+        <span class="hint">${pct}% · ${t.attempts}×</span>
+      </div>`;
+    }).join('') : '<p class="hint">No data yet — answer a few exercises first.</p>';
+    const recent = p.history.slice(-15).reverse();
+    $('recent').innerHTML = recent.length ? recent.map(h =>
+      `<span class="tag" style="margin:3px;${h.score>=70?'background:#ecfdf3;color:#15803d':'background:#fef2f2;color:#b91c1c'}">
+        ${escapeHtml(h.topic.replaceAll('_',' '))}: ${h.score}</span>`).join('')
+      : '<p class="hint">Nothing yet.</p>';
+  } catch (e) {
+    $('topic-bars').innerHTML = `<p class="error">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Greeting is display-only: the API conversation must start with a user message.
+addMsg('tutor', 'Hallo! Ik ben je Nederlandse tutor. Hoe gaat het met jou?'
+  + '<div class="trans">Hello! I\'m your Dutch tutor. How are you?</div>');
+updateLiveScore();
+</script>
+</body>
+</html>
