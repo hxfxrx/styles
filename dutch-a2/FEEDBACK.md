@@ -20,6 +20,9 @@ _(paste `klaar` outputs here; persistently weak topics drive course improvements
 
 ## Processed
 
+- 2026-06-11 — Voice Phases 1+2 built into the local app (TTS, dictation, read-aloud,
+  spoken answers, voice gesprek). Pending: live test with a real ElevenLabs key. (v3)
+
 - 2026-06-11 — Course created (modules 1–6, references, local app). Commits up to `c82bc22`.
 - 2026-06-11 — Default model → Sonnet 4.6; API key via `dutch.txt` file. (`378460d`)
 - 2026-06-11 — Claude.ai Project option added and fine-tuned: save/resume blocks, fresh

@@ -41,6 +41,27 @@ an interactive tutor powered by Claude. It:
    accidentally committed.) If you prefer environment variables, setting
    `ANTHROPIC_API_KEY` works too and takes precedence.
 
+## Voice (optional, via ElevenLabs)
+
+With an ElevenLabs API key the app also trains **listening and speaking**:
+
+- 🔊 buttons everywhere: hear any question, model answer, or chat reply in Dutch.
+- **Dictation exercises**: a sentence is played (never shown); you type what you hear.
+- **Read-aloud exercises**: you read a sentence into the microphone; your speech is
+  transcribed and compared word-by-word — mismatches point at pronunciation problems.
+- 🎤 **spoken answers** on any exercise, and full voice conversation in the Gesprek tab
+  (speak → transcribed → tutor replies out loud).
+- Listening and speaking get their own bars in the progress dashboard.
+
+To enable: get a key at <https://elevenlabs.io/> (profile → API keys), put it in a file
+named **`elevenlabs.txt`** in this folder (gitignored, like `dutch.txt`), and restart the
+app. Without the file, the app simply runs text-only. Generated audio is cached in
+`tts-cache/` so repeated phrases don't re-spend credits. Voice, TTS/STT models are
+overridable via `ELEVEN_VOICE`, `ELEVEN_TTS_MODEL`, `ELEVEN_STT_MODEL` env vars.
+
+The microphone requires the page to be on `localhost` (it is) and your browser to grant
+mic permission on first use.
+
 ## Run
 
 ```bash

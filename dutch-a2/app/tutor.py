@@ -2,14 +2,19 @@
 """Interactive Dutch A2 tutor — local web app backed by the Claude API.
 
 Run:  pip install anthropic
-      export ANTHROPIC_API_KEY=sk-ant-...
+      put your Claude API key in dutch.txt (this folder)
+      optional: put your ElevenLabs API key in elevenlabs.txt to enable voice
       python3 tutor.py
 Then open http://localhost:8765
 """
+import hashlib
 import json
 import os
 import sys
 import threading
+import urllib.error
+import urllib.request
+import uuid
 from glob import glob
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -21,31 +26,52 @@ except ImportError:
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 COURSE_DIR = os.path.dirname(APP_DIR)
 PROGRESS_FILE = os.path.join(APP_DIR, "progress.json")
+TTS_CACHE = os.path.join(APP_DIR, "tts-cache")
 MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
 PORT = int(os.environ.get("PORT", "8765"))
+
+# ElevenLabs settings (voice features switch on when a key is present)
+ELEVEN_VOICE = os.environ.get("ELEVEN_VOICE", "EXAVITQu4vr4xnSDxMaL")  # "Sarah" (premade)
+ELEVEN_TTS_MODEL = os.environ.get("ELEVEN_TTS_MODEL", "eleven_multilingual_v2")
+ELEVEN_STT_MODEL = os.environ.get("ELEVEN_STT_MODEL", "scribe_v1")
+
+
+def read_key_file(name):
+    try:
+        with open(os.path.join(APP_DIR, name), encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return ""
+
+
+API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip() or read_key_file("dutch.txt")
+ELEVEN_KEY = os.environ.get("ELEVENLABS_API_KEY", "").strip() or read_key_file("elevenlabs.txt")
+VOICE = bool(ELEVEN_KEY)
 
 TOPICS = [
     "pronunciation", "present_tense", "articles_de_het", "negation", "questions",
     "numbers_time", "word_order", "separable_verbs", "plurals", "possessives",
     "adjectives", "demonstratives", "prepositions", "modal_verbs", "imperative",
     "object_pronouns", "perfectum", "imperfectum", "future", "conjunctions",
-    "comparatives", "er", "vocabulary",
+    "comparatives", "er", "vocabulary", "listening", "speaking",
 ]
+
+TEXT_TYPES = ["multiple_choice", "fill_blank", "translate_to_dutch", "reorder", "free_response"]
+VOICE_TYPES = ["dictation", "read_aloud"]
+EXERCISE_TYPES = TEXT_TYPES + (VOICE_TYPES if VOICE else [])
 
 EXERCISE_SCHEMA = {
     "type": "object",
     "properties": {
-        "exercise_type": {
-            "type": "string",
-            "enum": ["multiple_choice", "fill_blank", "translate_to_dutch",
-                     "reorder", "free_response"],
-        },
+        "exercise_type": {"type": "string", "enum": EXERCISE_TYPES},
         "topic": {"type": "string", "enum": TOPICS},
         "difficulty": {"type": "string", "enum": ["easy", "normal", "hard"]},
         "instructions": {"type": "string",
                          "description": "One short line telling the learner what to do, in English."},
         "question": {"type": "string",
-                     "description": "The exercise itself. For fill_blank use ___ for the gap."},
+                     "description": "The exercise itself. For fill_blank use ___ for the gap. "
+                                    "For dictation and read_aloud: ONLY the bare Dutch sentence, "
+                                    "no quotes or commentary (it is played/read as-is)."},
         "options": {"type": "array", "items": {"type": "string"},
                     "description": "Answer choices for multiple_choice, or the shuffled words "
                                    "for reorder. Empty array for other types."},
@@ -88,19 +114,6 @@ CHAT_SCHEMA = {
     "additionalProperties": False,
 }
 
-def resolve_api_key():
-    """Use ANTHROPIC_API_KEY if set; otherwise read dutch.txt next to this script."""
-    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not key:
-        try:
-            with open(os.path.join(APP_DIR, "dutch.txt"), encoding="utf-8") as f:
-                key = f.read().strip()
-        except FileNotFoundError:
-            pass
-    return key
-
-
-API_KEY = resolve_api_key()
 client = anthropic.Anthropic(api_key=API_KEY or None)
 _lock = threading.Lock()
 
@@ -195,6 +208,16 @@ def call_claude(system, user_text, schema, effort):
     return json.loads(text)
 
 
+VOICE_GEN_NOTE = (
+    "Two voice exercise types are available and should be used for roughly one exercise in "
+    "three:\n"
+    "- 'dictation' (trains LISTENING): question = one natural Dutch sentence from the module's "
+    "world. It is played as audio; the learner never sees it and types what they hear.\n"
+    "- 'read_aloud' (trains SPEAKING): question = one Dutch sentence the learner reads aloud; "
+    "their speech is transcribed automatically and compared to it.\n"
+)
+
+
 def make_exercise(module, avoid):
     summary, difficulty = learner_summary()
     user = (
@@ -202,6 +225,7 @@ def make_exercise(module, avoid):
         f"Create ONE new exercise at '{difficulty}' difficulty.\n"
         "Pick the topic with a strong bias toward the learner's weakest topics that this "
         "module covers; occasionally mix in a stronger topic to keep variety.\n"
+        + (VOICE_GEN_NOTE if VOICE else "")
         + (f"Do not repeat these recent questions: {avoid}\n" if avoid else "")
         + "Vary the exercise type. For 'reorder', put the words of the target sentence "
           "shuffled into options. Do not include the answer anywhere in the exercise."
@@ -209,17 +233,32 @@ def make_exercise(module, avoid):
     return call_claude(system_for_module(module), user, EXERCISE_SCHEMA, "low")
 
 
+GRADE_VOICE_NOTE = (
+    "If the exercise_type is 'dictation', the learner heard the sentence as audio and typed "
+    "it; grade word-by-word against the question. If it is 'read_aloud', the answer is an "
+    "automatic speech-to-text transcript of the learner reading the question aloud: grade how "
+    "closely it matches, name the words that differ (likely pronunciation problems), and "
+    "ignore missing punctuation or capitalization entirely.\n"
+)
+
+
 def grade_answer(module, exercise, answer):
     user = (
         "Grade this learner's answer.\n\n"
         f"Exercise: {json.dumps(exercise, ensure_ascii=False)}\n"
         f"Learner's answer: {json.dumps(answer, ensure_ascii=False)}\n\n"
-        "Be fair at A2 level: ignore capitalization and accept minor punctuation "
-        "differences; for free responses accept any correct, level-appropriate answer."
+        + (GRADE_VOICE_NOTE if VOICE else "")
+        + "Be fair at A2 level: ignore capitalization and accept minor punctuation "
+          "differences; for free responses accept any correct, level-appropriate answer."
     )
     result = call_claude(system_for_module(module), user, GRADE_SCHEMA, "medium")
-    progress = record_result(exercise.get("topic", "vocabulary"),
-                             max(0, min(100, int(result["score"]))))
+    topic = exercise.get("topic", "vocabulary")
+    etype = exercise.get("exercise_type")
+    if etype == "dictation":
+        topic = "listening"
+    elif etype == "read_aloud":
+        topic = "speaking"
+    progress = record_result(topic, max(0, min(100, int(result["score"]))))
     result["progress"] = progress
     return result
 
@@ -231,7 +270,9 @@ CHAT_SYSTEM = [{
         "simple Dutch using high-frequency words and short main clauses (occasional "
         "'omdat/als' subclauses are fine at A2). Stay on everyday topics: introductions, "
         "family, food, weather, daily routine, weekend plans, travel. Gently correct "
-        "mistakes. Steer the conversation toward the learner's weak topics when natural."
+        "mistakes. Steer the conversation toward the learner's weak topics when natural. "
+        "The learner may be speaking their messages aloud (auto-transcribed), so tolerate "
+        "transcription quirks like missing punctuation."
     ),
     "cache_control": {"type": "ephemeral"},
 }]
@@ -261,6 +302,68 @@ def chat_turn(messages):
     return json.loads(text)
 
 
+# ---------- ElevenLabs voice ----------
+
+def _eleven_error(e):
+    try:
+        detail = json.loads(e.read()).get("detail", {})
+        msg = detail.get("message", str(detail)) if isinstance(detail, dict) else str(detail)
+    except Exception:
+        msg = str(e)
+    return RuntimeError(f"ElevenLabs error ({e.code}): {msg}")
+
+
+def tts(text):
+    """Dutch speech for `text`, cached on disk so repeated phrases cost credits once."""
+    os.makedirs(TTS_CACHE, exist_ok=True)
+    digest = hashlib.sha256(f"{ELEVEN_VOICE}|{ELEVEN_TTS_MODEL}|{text}".encode()).hexdigest()
+    path = os.path.join(TTS_CACHE, digest + ".mp3")
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            return f.read()
+    req = urllib.request.Request(
+        f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE}"
+        "?output_format=mp3_44100_128",
+        data=json.dumps({"text": text, "model_id": ELEVEN_TTS_MODEL}).encode(),
+        headers={"xi-api-key": ELEVEN_KEY, "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            audio = r.read()
+    except urllib.error.HTTPError as e:
+        raise _eleven_error(e)
+    with open(path, "wb") as f:
+        f.write(audio)
+    return audio
+
+
+def stt(audio_bytes, mime):
+    """Transcribe learner speech (Dutch) with ElevenLabs Scribe."""
+    boundary = uuid.uuid4().hex
+
+    def field(name, value):
+        return (f"--{boundary}\r\nContent-Disposition: form-data; "
+                f'name="{name}"\r\n\r\n{value}\r\n').encode()
+
+    body = field("model_id", ELEVEN_STT_MODEL) + field("language_code", "nl")
+    body += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; "
+             f"filename=\"answer\"\r\nContent-Type: {mime}\r\n\r\n").encode()
+    body += audio_bytes + b"\r\n" + f"--{boundary}--\r\n".encode()
+    req = urllib.request.Request(
+        "https://api.elevenlabs.io/v1/speech-to-text",
+        data=body,
+        headers={"xi-api-key": ELEVEN_KEY,
+                 "Content-Type": f"multipart/form-data; boundary={boundary}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            return json.loads(r.read())["text"].strip()
+    except urllib.error.HTTPError as e:
+        raise _eleven_error(e)
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code, payload, content_type="application/json"):
         body = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
@@ -279,27 +382,46 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, f.read(), "text/html; charset=utf-8")
         elif self.path == "/api/progress":
             self._send(200, load_progress())
+        elif self.path == "/api/config":
+            self._send(200, {"voice": VOICE, "model": MODEL})
         else:
             self._send(404, {"error": "not found"})
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length)
         try:
-            body = json.loads(self.rfile.read(length) or b"{}")
-            if self.path == "/api/exercise":
+            if self.path == "/api/tts":
+                if not VOICE:
+                    raise ValueError("Voice is not configured — add elevenlabs.txt and restart.")
+                text = json.loads(raw or b"{}").get("text", "").strip()
+                if not text:
+                    raise ValueError("empty text")
+                self._send(200, tts(text), "audio/mpeg")
+            elif self.path == "/api/stt":
+                if not VOICE:
+                    raise ValueError("Voice is not configured — add elevenlabs.txt and restart.")
+                if not raw:
+                    raise ValueError("empty audio")
+                mime = self.headers.get("Content-Type", "audio/webm")
+                self._send(200, {"text": stt(raw, mime)})
+            elif self.path == "/api/exercise":
+                body = json.loads(raw or b"{}")
                 module = int(body.get("module", 1))
                 if module not in MODULES:
                     raise ValueError(f"unknown module {module}")
                 self._send(200, make_exercise(module, body.get("avoid", [])))
             elif self.path == "/api/grade":
+                body = json.loads(raw or b"{}")
                 self._send(200, grade_answer(int(body.get("module", 1)),
                                              body["exercise"], body["answer"]))
             elif self.path == "/api/chat":
+                body = json.loads(raw or b"{}")
                 self._send(200, chat_turn(body["messages"]))
             else:
                 self._send(404, {"error": "not found"})
         except anthropic.AuthenticationError:
-            self._send(502, {"error": "Invalid or missing ANTHROPIC_API_KEY."})
+            self._send(502, {"error": "Invalid or missing Claude API key (dutch.txt)."})
         except anthropic.APIError as e:
             self._send(502, {"error": f"Claude API error: {e.message}"})
         except Exception as e:  # surface anything else to the UI instead of a blank failure
@@ -316,7 +438,9 @@ def main():
         )
     if not MODULES:
         sys.exit(f"No module-*.md files found in {COURSE_DIR} — run from inside dutch-a2/app/.")
-    print(f"Dutch A2 tutor running on http://localhost:{PORT}  (model: {MODEL})")
+    voice_note = "on (ElevenLabs)" if VOICE else "off — add elevenlabs.txt to enable"
+    print(f"Dutch A2 tutor running on http://localhost:{PORT}")
+    print(f"  model: {MODEL} · voice: {voice_note}")
     print("Press Ctrl+C to stop.")
     ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
 

@@ -104,6 +104,11 @@ and the same topic-mastery model.
 gitignored `elevenlabs.txt` next to `tutor.py` (already in `.gitignore`). The app works
 fully without it; voice features simply don't appear until the file exists.
 
+> **Status: Phases 1 and 2 built (2026-06-11, v3).** Phase 3 remains a watchlist
+> evaluation (W4/W5). One deviation from the plan below: vocab-audio lives in the
+> exercise flow rather than a separate flashcard mode (the local app has no `woorden`
+> mode; the claude.ai option covers flashcards, text-only).
+
 ### Phase 1 — Listening (TTS): smallest step, biggest gap closed
 
 1. **"🔊 Luister" button** on every exercise, model answer, and chat reply: a new

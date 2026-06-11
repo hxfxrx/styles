@@ -32,12 +32,16 @@
     font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
     background: #fff; width: 100%; }
   select { width: auto; }
-  textarea { min-height: 70px; resize: vertical; }
+  textarea { min-height: 70px; resize: vertical; flex: 1; }
   .btn { font: inherit; background: var(--orange); color: #fff; border: none;
          padding: 9px 20px; border-radius: 8px; cursor: pointer; }
   .btn:hover { background: var(--orange-dark); }
   .btn:disabled { opacity: .5; cursor: default; }
-  .btn.ghost { background: transparent; color: var(--orange); border: 1px solid var(--orange); }
+  .iconbtn { font: inherit; font-size: 1.05rem; background: #f1ece4; border: 1px solid var(--border);
+             border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  .iconbtn:disabled { opacity: .5; }
+  .iconbtn.rec { background: var(--red-bg); border-color: var(--red); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .6; } }
   .card { border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin: 14px 0; }
   .tag { display: inline-block; font-size: .75rem; padding: 2px 10px; border-radius: 999px;
          background: #f1ece4; color: var(--muted); margin-right: 6px; }
@@ -64,6 +68,7 @@
   .spinner { color: var(--muted); font-style: italic; }
   .error { color: var(--red); margin-top: 10px; }
   .hint { color: var(--muted); font-size: .9rem; }
+  .voice-off { display: none; }
 </style>
 </head>
 <body>
@@ -95,7 +100,8 @@
       <button class="btn" id="new-ex" onclick="newExercise()">Nieuwe oefening</button>
     </div>
     <p class="hint">Exercises automatically target your weakest topics and adjust difficulty
-      to your recent scores.</p>
+      to your recent scores.<span id="voice-hint" class="voice-off"> Voice is on: expect
+      listening (dictation) and speaking (read-aloud) exercises too.</span></p>
     <div id="exercise-area"></div>
     <div id="practice-error" class="error"></div>
   </section>
@@ -107,8 +113,13 @@
     <div class="row" style="margin-top:12px">
       <input type="text" id="chat-input" placeholder="Typ iets in het Nederlands… (e.g. Hallo! Ik heet …)"
              style="flex:1" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="iconbtn voice-only voice-off" id="chat-mic" title="Speak your message"
+              onclick="recToggle(this, t => { $('chat-input').value = t; sendChat(); })">🎤</button>
       <button class="btn" id="chat-send" onclick="sendChat()">Stuur</button>
     </div>
+    <label class="hint voice-only voice-off" style="display:block">
+      <input type="checkbox" id="autospeak" checked> Speak replies aloud automatically
+    </label>
     <div id="chat-error" class="error"></div>
   </section>
 
@@ -126,7 +137,13 @@
 <script>
 const $ = id => document.getElementById(id);
 let exercise = null, recentQuestions = [], session = {count:0, total:0, streak:0};
-let chatMessages = [];
+let chatMessages = [], cfg = {voice:false};
+
+fetch('/api/config').then(r => r.json()).then(c => {
+  cfg = c;
+  if (cfg.voice) document.querySelectorAll('.voice-off').forEach(el =>
+    el.classList.remove('voice-off'));
+});
 
 function showTab(name) {
   for (const t of ['practice','chat','progress']) {
@@ -151,6 +168,60 @@ function updateLiveScore() {
   $('ss-score').textContent = session.count ? Math.round(session.total/session.count) : '–';
 }
 
+// ---------- voice helpers ----------
+const sayStore = [], ttsCache = new Map();
+function spkBtn(text, label) {  // inline-safe speaker button (text kept out of the HTML)
+  if (!cfg.voice || !text) return '';
+  sayStore.push(text);
+  return `<button class="iconbtn" title="Listen" onclick="speak(sayStore[${sayStore.length-1}], this)">${label || '🔊'}</button>`;
+}
+
+async function speak(text, btn) {
+  try {
+    if (btn) btn.disabled = true;
+    let url = ttsCache.get(text);
+    if (!url) {
+      const res = await fetch('/api/tts', {method:'POST',
+        headers:{'Content-Type':'application/json'}, body:JSON.stringify({text})});
+      if (!res.ok) throw new Error((await res.json()).error || 'TTS failed');
+      url = URL.createObjectURL(await res.blob());
+      ttsCache.set(text, url);
+    }
+    await new Audio(url).play();
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+let recorder = null;
+async function recToggle(btn, onTranscript) {
+  if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({audio: true});
+  } catch (e) { alert('Microphone access denied: ' + e.message); return; }
+  const chunks = [];
+  recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    btn.textContent = '🎤'; btn.classList.remove('rec'); btn.disabled = true;
+    try {
+      const blob = new Blob(chunks, {type: recorder.mimeType || 'audio/webm'});
+      const res = await fetch('/api/stt', {method:'POST',
+        headers:{'Content-Type': blob.type}, body: blob});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'transcription failed');
+      onTranscript(data.text);
+    } catch (e) { alert(e.message); }
+    btn.disabled = false;
+  };
+  recorder.start();
+  btn.textContent = '⏹'; btn.classList.add('rec');
+}
+
 // ---------- practice ----------
 async function newExercise() {
   $('practice-error').textContent = '';
@@ -170,33 +241,53 @@ async function newExercise() {
 }
 
 function renderExercise() {
+  const t = exercise.exercise_type;
   const typeLabel = {multiple_choice:'multiple choice', fill_blank:'fill in the blank',
     translate_to_dutch:'translate to Dutch', reorder:'put the words in order',
-    free_response:'free response'}[exercise.exercise_type] || exercise.exercise_type;
-  let answerHtml;
-  if (exercise.exercise_type === 'multiple_choice') {
-    answerHtml = '<div class="options">' + exercise.options.map((o,i) =>
+    free_response:'free response', dictation:'🎧 dictation — listen & type',
+    read_aloud:'🎤 read aloud'}[t] || t;
+  let questionHtml, answerHtml;
+
+  if (t === 'dictation') {
+    // Never show the sentence — the learner has to hear it.
+    questionHtml = `<p class="question">${spkBtn(exercise.question, '🔊 Luister')}
+      <span class="hint">(click to listen, as often as you like)</span></p>`;
+  } else {
+    const showSpeaker = ['multiple_choice','fill_blank','read_aloud','free_response'].includes(t);
+    questionHtml = `<p class="question">${escapeHtml(exercise.question)}
+      ${showSpeaker ? spkBtn(exercise.question) : ''}</p>`;
+  }
+
+  if (t === 'multiple_choice') {
+    answerHtml = '<div class="options">' + exercise.options.map(o =>
       `<label><input type="radio" name="opt" value="${escapeHtml(o)}"> ${escapeHtml(o)}</label>`
     ).join('') + '</div>';
   } else {
-    const words = exercise.exercise_type === 'reorder'
+    const words = t === 'reorder'
       ? `<p class="hint">Words: ${exercise.options.map(escapeHtml).join(' · ')}</p>` : '';
-    answerHtml = words + '<textarea id="answer" placeholder="Jouw antwoord…"></textarea>';
+    const placeholder = t === 'read_aloud'
+      ? 'Press 🎤 and read the sentence aloud…' : 'Jouw antwoord…';
+    const mic = cfg.voice
+      ? `<button class="iconbtn" title="Speak your answer"
+           onclick="recToggle(this, tx => { $('answer').value = tx; })">🎤</button>` : '';
+    answerHtml = words + `<div class="row" style="align-items:flex-start">
+      <textarea id="answer" placeholder="${placeholder}"></textarea>${mic}</div>`;
   }
+
   $('exercise-area').innerHTML = `
     <div class="card">
       <span class="tag">${escapeHtml(exercise.topic.replaceAll('_',' '))}</span>
       <span class="tag">${typeLabel}</span>
       <span class="tag">${exercise.difficulty}</span>
       <p class="hint" style="margin:10px 0 0">${escapeHtml(exercise.instructions)}</p>
-      <p class="question">${escapeHtml(exercise.question)}</p>
+      ${questionHtml}
       ${answerHtml}
       <div class="row" style="margin-top:14px">
         <button class="btn" id="submit" onclick="submitAnswer()">Controleer</button>
       </div>
       <div id="feedback"></div>
     </div>`;
-  const ta = $('answer'); if (ta) ta.focus();
+  const ta = $('answer'); if (ta && t !== 'read_aloud') ta.focus();
 }
 
 async function submitAnswer() {
@@ -216,7 +307,8 @@ async function submitAnswer() {
         <span class="score">${g.score}/100</span>
         ${g.score >= 70 ? '— Goed zo!' : '— Bijna!'}
         <p style="margin:8px 0 4px">${escapeHtml(g.feedback)}</p>
-        <p style="margin:4px 0 0"><b>Model answer:</b> ${escapeHtml(g.correct_answer)}</p>
+        <p style="margin:4px 0 0"><b>Model answer:</b> ${escapeHtml(g.correct_answer)}
+          ${spkBtn(g.correct_answer)}</p>
         <div class="row" style="margin-top:12px">
           <button class="btn" onclick="newExercise()">Volgende oefening →</button>
         </div>
@@ -250,9 +342,10 @@ async function sendChat() {
   try {
     const r = await api('/api/chat', {messages: chatMessages});
     chatMessages.push({role:'assistant', content: r.reply});
-    pending.innerHTML = escapeHtml(r.reply)
+    pending.innerHTML = escapeHtml(r.reply) + ' ' + spkBtn(r.reply)
       + (r.correction ? `<div class="corr">✏️ ${escapeHtml(r.correction)}</div>` : '')
       + `<div class="trans">${escapeHtml(r.translation)}</div>`;
+    if (cfg.voice && $('autospeak').checked) speak(r.reply, null);
   } catch (e) {
     pending.remove();
     chatMessages.pop();
