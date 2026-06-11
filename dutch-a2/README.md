@@ -33,10 +33,20 @@ Reference materials:
 - [Core vocabulary](core-vocabulary.md) — ~700 high-frequency words organized by theme.
 - [Resources](resources.md) — recommended apps, podcasts, video, graded readers, and exam info.
 
-**Interactive tutor app:** the [`app/`](app/README.md) folder contains a small program you can
-run on your own computer that turns these modules into an interactive, Claude-powered tutor —
-it generates exercises, grades your answers live, tracks per-topic scores, and automatically
-focuses on whatever you find difficult. See [app/README.md](app/README.md) for setup.
+## Interactive tutor (two options)
+
+Both turn these modules into a live, adaptive tutor: fresh exercises, instant 0–100 grading
+with explanations, per-topic scores, and automatic focus on whatever you find difficult.
+
+| | Option 1: [Claude.ai Project](claude-ai-tutor.md) | Option 2: [Local app](app/README.md) |
+|---|---|---|
+| Needs | A Claude.ai subscription (uses your existing/extra-usage credits) | An API key + credits from platform.claude.com |
+| Setup | ~2 min: upload the course files to a Project, paste the instructions | Install Python package, save key to a file, run `tutor.py` |
+| Progress | Per chat; carried over via a copy-paste save block (`klaar` command) | Automatic, persistent dashboard (`progress.json`) |
+| Extras | Vocab flashcards, writing-task correction, module tests, voice input on mobile | Live score bar, mastery charts |
+
+If you already pay for Claude.ai, start with **Option 1** — see
+[claude-ai-tutor.md](claude-ai-tutor.md).
 
 ## How to use this course
 
