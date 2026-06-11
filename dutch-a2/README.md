@@ -33,6 +33,13 @@ Reference materials:
 - [Core vocabulary](core-vocabulary.md) — ~700 high-frequency words organized by theme.
 - [Resources](resources.md) — recommended apps, podcasts, video, graded readers, and exam info.
 
+Project operations (for maintaining/evolving the course via Claude Code on this branch):
+
+- [MONITOR.md](MONITOR.md) — the monitor scheme: feedback loop, capability watchlist,
+  sync procedure, and the ElevenLabs voice roadmap.
+- [FEEDBACK.md](FEEDBACK.md) — feedback inbox + performance save blocks.
+- [CHANGELOG.md](CHANGELOG.md) — release history and what to re-sync.
+
 ## Interactive tutor (two options)
 
 Both turn these modules into a live, adaptive tutor: fresh exercises, instant 0–100 grading

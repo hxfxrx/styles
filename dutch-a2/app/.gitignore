@@ -1,3 +1,5 @@
 progress.json
 __pycache__/
 dutch.txt
+elevenlabs.txt
+tts-cache/
