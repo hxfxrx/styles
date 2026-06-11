@@ -14,6 +14,12 @@ _(paste `klaar` outputs here; persistently weak topics drive course improvements
 
 ## Capability log
 
+- 2026-06-11 — Voice v3 live test from Claude Code blocked: the remote environment's
+  network allowlist doesn't include api.elevenlabs.io (proxy 403 host_not_allowed).
+  Code path verified with mocked responses instead. To enable live tests in future
+  sessions, add api.elevenlabs.io to this environment's network policy at
+  code.claude.com. User will live-test locally.
+
 - 2026-06-11 — Watchlist created (see MONITOR.md §3). Baseline: claude.ai voice is
   mobile-dictation only; Projects cannot call external tools; ElevenLabs TTS + Scribe STT
   both support Dutch; no Claude native audio API.
