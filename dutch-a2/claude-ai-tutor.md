@@ -1,7 +1,7 @@
 # Using the tutor on Claude.ai (with your subscription credits)
 
-If you have a Claude.ai subscription (and extra-usage credits), you can run this course's
-tutor inside claude.ai instead of the local app — no API key needed.
+This is the course's interactive tutor: it runs inside claude.ai using your existing
+subscription — no API keys, nothing to install.
 
 ## Setup (once, ~2 minutes)
 

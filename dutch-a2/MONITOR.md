@@ -1,7 +1,12 @@
 # Project Monitor — how this branch manages the Dutch A2 project
 
 This branch (`claude/dutch-a2-study-module-8b2xew`) is the **operations hub** for the Dutch
-A2 learning project. The learning itself happens elsewhere (the Claude.ai Project, the local
+A2 learning project.
+
+> **PARKED (2026-06-11, user decision):** the local app (`app/`, incl. its ElevenLabs voice
+> features) is shelved. Do not mention, maintain, or build on it in sessions or learner-facing
+> docs until the user explicitly brings it back. The active learning surface is the
+> **claude.ai Project** (`claude-ai-tutor.md`) only. The learning itself happens elsewhere (the Claude.ai Project, the local
 app, paper study); *this* is where feedback lands, where the course evolves, and where new
 capabilities get evaluated and integrated.
 

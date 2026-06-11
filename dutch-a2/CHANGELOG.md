@@ -2,6 +2,13 @@
 
 Releases of the Dutch A2 project. After each release, sync per MONITOR.md §4.
 
+## v5 — 2026-06-11
+
+- Local app parked at user request; claude.ai Project is the single learning path. Docs
+  rewritten accordingly (no code deleted — everything stays in `app/` for a possible
+  un-parking later).
+- Sync: nothing to re-upload; docs-only.
+
 ## v4 — 2026-06-11
 
 - Local app: API keys are no longer stored in files. The app prompts for the Claude key and

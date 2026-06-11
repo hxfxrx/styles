@@ -26,6 +26,9 @@ _(paste `klaar` outputs here; persistently weak topics drive course improvements
 
 ## Processed
 
+- 2026-06-11 — User decision: local app parked; claude.ai Project is the sole active path.
+  README and tutor docs rewritten around it; parking recorded in MONITOR.md. (v5)
+
 - 2026-06-11 — User request: no stored API keys. App now prompts for keys at every startup
   (memory only); key-file mechanism and docs removed. (v4)
 

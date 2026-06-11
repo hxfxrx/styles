@@ -40,20 +40,13 @@ Project operations (for maintaining/evolving the course via Claude Code on this 
 - [FEEDBACK.md](FEEDBACK.md) — feedback inbox + performance save blocks.
 - [CHANGELOG.md](CHANGELOG.md) — release history and what to re-sync.
 
-## Interactive tutor (two options)
+## Interactive tutor
 
-Both turn these modules into a live, adaptive tutor: fresh exercises, instant 0–100 grading
-with explanations, per-topic scores, and automatic focus on whatever you find difficult.
-
-| | Option 1: [Claude.ai Project](claude-ai-tutor.md) | Option 2: [Local app](app/README.md) |
-|---|---|---|
-| Needs | A Claude.ai subscription (uses your existing/extra-usage credits) | An API key + credits from platform.claude.com |
-| Setup | ~2 min: upload the course files to a Project, paste the instructions | Install Python package, save key to a file, run `tutor.py` |
-| Progress | Per chat; carried over via a copy-paste save block (`klaar` command) | Automatic, persistent dashboard (`progress.json`) |
-| Extras | Vocab flashcards, writing-task correction, module tests, voice input on mobile | Live score bar, mastery charts |
-
-If you already pay for Claude.ai, start with **Option 1** — see
-[claude-ai-tutor.md](claude-ai-tutor.md).
+**[claude-ai-tutor.md](claude-ai-tutor.md)** turns these modules into a live, adaptive tutor
+on claude.ai, using your existing subscription: fresh exercises, instant 0–100 grading with
+explanations, per-topic scores carried between chats via save blocks, vocabulary flashcards,
+writing-task correction, and module tests. Setup takes ~2 minutes — upload the course files
+to a claude.ai Project and paste in the instructions.
 
 ## How to use this course
 
