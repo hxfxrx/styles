@@ -6,14 +6,16 @@ A2 learning project.
 > **PARKED (2026-06-11, user decision):** the local app (`app/`, incl. its ElevenLabs voice
 > features) is shelved. Do not mention, maintain, or build on it in sessions or learner-facing
 > docs until the user explicitly brings it back. The active learning surface is the
-> **claude.ai Project** (`claude-ai-tutor.md`) only. The learning itself happens elsewhere (the Claude.ai Project, the local
-app, paper study); *this* is where feedback lands, where the course evolves, and where new
-capabilities get evaluated and integrated.
+> **claude.ai Project** (`claude-ai-tutor.md`) only.
+
+The learning itself happens elsewhere (the claude.ai Project, paper study); *this* is where
+feedback lands, where the course evolves, and where new capabilities get evaluated and
+integrated.
 
 ## 1. The loop
 
 ```
- you study (claude.ai Project / local app / paper)
+ you study (claude.ai Project / paper)
         │
         ▼
  you notice something: an error, a friction, a wish, a new capability
