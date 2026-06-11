@@ -2,6 +2,14 @@
 
 Releases of the Dutch A2 project. After each release, sync per MONITOR.md §4.
 
+## v4 — 2026-06-11
+
+- Local app: API keys are no longer stored in files. The app prompts for the Claude key and
+  (optionally) the ElevenLabs key at every startup; keys live in memory only. All key-file
+  docs removed.
+- Sync: `git pull` + restart `tutor.py`. Local `dutch.txt` / `elevenlabs.txt` files can be
+  deleted — they are no longer read.
+
 ## v3 — 2026-06-11
 
 - Local app: ElevenLabs voice integration (MONITOR.md §6, Phases 1+2). TTS playback with

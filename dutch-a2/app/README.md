@@ -19,31 +19,29 @@ an interactive tutor powered by Claude. It:
 - Python 3.9+ (`python3 --version` to check)
 - An Anthropic API key — create one at <https://platform.claude.com/> (the API is pay-as-you-go
   and separate from a Claude.ai subscription)
+- Optional: an ElevenLabs API key (<https://elevenlabs.io/>) for the voice features
 
 ## Setup (one time)
 
-1. Install the SDK:
+```bash
+pip install anthropic
+```
 
-   ```bash
-   pip install anthropic
-   ```
+## Run
 
-2. Get an API key at <https://platform.claude.com/> → Settings → API keys → Create key.
+```bash
+cd dutch-a2/app
+python3 tutor.py
+```
 
-3. Create a file named **`dutch.txt`** in this folder (`dutch-a2/app/`) containing only your
-   key, e.g.:
-
-   ```
-   sk-ant-api03-xxxxxxxxxxxxxxxx
-   ```
-
-   That's it — the app reads it automatically. (The file is gitignored, so it can't be
-   accidentally committed.) If you prefer environment variables, setting
-   `ANTHROPIC_API_KEY` works too and takes precedence.
+**The app asks for your API keys every time it starts** — first the Claude key (required),
+then the ElevenLabs key (press Enter to skip voice). Input is hidden while you paste it, the
+keys live only in the app's memory for that run, and nothing is ever written to disk. When
+the server line appears, open **http://localhost:8765** in your browser. Stop with `Ctrl+C`.
 
 ## Voice (optional, via ElevenLabs)
 
-With an ElevenLabs API key the app also trains **listening and speaking**:
+If you enter an ElevenLabs key at startup, the app also trains **listening and speaking**:
 
 - 🔊 buttons everywhere: hear any question, model answer, or chat reply in Dutch.
 - **Dictation exercises**: a sentence is played (never shown); you type what you hear.
@@ -53,23 +51,10 @@ With an ElevenLabs API key the app also trains **listening and speaking**:
   (speak → transcribed → tutor replies out loud).
 - Listening and speaking get their own bars in the progress dashboard.
 
-To enable: get a key at <https://elevenlabs.io/> (profile → API keys), put it in a file
-named **`elevenlabs.txt`** in this folder (gitignored, like `dutch.txt`), and restart the
-app. Without the file, the app simply runs text-only. Generated audio is cached in
-`tts-cache/` so repeated phrases don't re-spend credits. Voice, TTS/STT models are
-overridable via `ELEVEN_VOICE`, `ELEVEN_TTS_MODEL`, `ELEVEN_STT_MODEL` env vars.
-
-The microphone requires the page to be on `localhost` (it is) and your browser to grant
-mic permission on first use.
-
-## Run
-
-```bash
-cd dutch-a2/app
-python3 tutor.py
-```
-
-Then open **http://localhost:8765** in your browser. Stop the server with `Ctrl+C`.
+Generated audio is cached in `tts-cache/` so repeated phrases don't re-spend credits. Voice
+and TTS/STT models are overridable via `ELEVEN_VOICE`, `ELEVEN_TTS_MODEL`, `ELEVEN_STT_MODEL`
+environment variables. The microphone requires the page to be on `localhost` (it is) and your
+browser to grant mic permission on first use.
 
 ## How it works
 
@@ -78,7 +63,8 @@ Then open **http://localhost:8765** in your browser. Stop the server with `Ctrl+
   (`claude-sonnet-4-6` by default) and asks for a structured exercise; grading works the same
   way. The module text is prompt-cached, so repeated exercises are fast and cheap.
 - Your progress lives in `dutch-a2/app/progress.json` on your machine — delete it to start
-  fresh. Nothing is stored anywhere else; the only network traffic is to the Claude API.
+  fresh. Nothing is stored anywhere else; the only network traffic is to the Claude API and
+  (if voice is on) ElevenLabs.
 - Set `CLAUDE_MODEL=claude-opus-4-8` (smarter, pricier) or `PORT=9000` via environment
   variables if you want to change the defaults.
 
@@ -86,4 +72,5 @@ Then open **http://localhost:8765** in your browser. Stop the server with `Ctrl+
 
 Each exercise or chat turn is one or two API calls of a few thousand (mostly cached) input
 tokens and a short output — typically well under a cent per exercise on Sonnet 4.6.
-A daily 20-exercise session costs a few cents.
+A daily 20-exercise session costs a few cents. Voice adds a few hundred ElevenLabs
+characters per spoken sentence.

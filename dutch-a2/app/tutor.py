@@ -2,11 +2,12 @@
 """Interactive Dutch A2 tutor — local web app backed by the Claude API.
 
 Run:  pip install anthropic
-      put your Claude API key in dutch.txt (this folder)
-      optional: put your ElevenLabs API key in elevenlabs.txt to enable voice
       python3 tutor.py
-Then open http://localhost:8765
+The app asks for your Claude API key (and optionally an ElevenLabs key for
+voice) every time it starts. Keys are held in memory only — never written
+to disk. Then open http://localhost:8765
 """
+import getpass
 import hashlib
 import json
 import os
@@ -36,17 +37,11 @@ ELEVEN_TTS_MODEL = os.environ.get("ELEVEN_TTS_MODEL", "eleven_multilingual_v2")
 ELEVEN_STT_MODEL = os.environ.get("ELEVEN_STT_MODEL", "scribe_v1")
 
 
-def read_key_file(name):
-    try:
-        with open(os.path.join(APP_DIR, name), encoding="utf-8") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        return ""
-
-
-API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip() or read_key_file("dutch.txt")
-ELEVEN_KEY = os.environ.get("ELEVENLABS_API_KEY", "").strip() or read_key_file("elevenlabs.txt")
-VOICE = bool(ELEVEN_KEY)
+# Keys are collected interactively at startup (see init_keys) and kept in memory only.
+ELEVEN_KEY = ""
+VOICE = False
+client = None
+EXERCISE_SCHEMA = None
 
 TOPICS = [
     "pronunciation", "present_tense", "articles_de_het", "negation", "questions",
@@ -58,12 +53,13 @@ TOPICS = [
 
 TEXT_TYPES = ["multiple_choice", "fill_blank", "translate_to_dutch", "reorder", "free_response"]
 VOICE_TYPES = ["dictation", "read_aloud"]
-EXERCISE_TYPES = TEXT_TYPES + (VOICE_TYPES if VOICE else [])
 
-EXERCISE_SCHEMA = {
+
+def build_exercise_schema(types):
+    return {
     "type": "object",
     "properties": {
-        "exercise_type": {"type": "string", "enum": EXERCISE_TYPES},
+        "exercise_type": {"type": "string", "enum": types},
         "topic": {"type": "string", "enum": TOPICS},
         "difficulty": {"type": "string", "enum": ["easy", "normal", "hard"]},
         "instructions": {"type": "string",
@@ -78,7 +74,8 @@ EXERCISE_SCHEMA = {
     },
     "required": ["exercise_type", "topic", "difficulty", "instructions", "question", "options"],
     "additionalProperties": False,
-}
+    }
+
 
 GRADE_SCHEMA = {
     "type": "object",
@@ -114,8 +111,20 @@ CHAT_SCHEMA = {
     "additionalProperties": False,
 }
 
-client = anthropic.Anthropic(api_key=API_KEY or None)
 _lock = threading.Lock()
+
+
+def init_keys():
+    """Ask for API keys at every startup; nothing is persisted to disk."""
+    global client, ELEVEN_KEY, VOICE, EXERCISE_SCHEMA
+    api_key = getpass.getpass("Claude API key (sk-ant-..., input is hidden): ").strip()
+    if not api_key:
+        sys.exit("A Claude API key is required. Get one at https://platform.claude.com/")
+    eleven = getpass.getpass("ElevenLabs API key for voice (press Enter to skip): ").strip()
+    client = anthropic.Anthropic(api_key=api_key)
+    ELEVEN_KEY = eleven
+    VOICE = bool(eleven)
+    EXERCISE_SCHEMA = build_exercise_schema(TEXT_TYPES + (VOICE_TYPES if VOICE else []))
 
 
 def load_modules():
@@ -393,14 +402,14 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if self.path == "/api/tts":
                 if not VOICE:
-                    raise ValueError("Voice is not configured — add elevenlabs.txt and restart.")
+                    raise ValueError("Voice is off — restart the app and enter an ElevenLabs key.")
                 text = json.loads(raw or b"{}").get("text", "").strip()
                 if not text:
                     raise ValueError("empty text")
                 self._send(200, tts(text), "audio/mpeg")
             elif self.path == "/api/stt":
                 if not VOICE:
-                    raise ValueError("Voice is not configured — add elevenlabs.txt and restart.")
+                    raise ValueError("Voice is off — restart the app and enter an ElevenLabs key.")
                 if not raw:
                     raise ValueError("empty audio")
                 mime = self.headers.get("Content-Type", "audio/webm")
@@ -421,7 +430,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._send(404, {"error": "not found"})
         except anthropic.AuthenticationError:
-            self._send(502, {"error": "Invalid or missing Claude API key (dutch.txt)."})
+            self._send(502, {"error": "Invalid Claude API key — restart the app and re-enter it."})
         except anthropic.APIError as e:
             self._send(502, {"error": f"Claude API error: {e.message}"})
         except Exception as e:  # surface anything else to the UI instead of a blank failure
@@ -429,16 +438,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    if not API_KEY:
-        sys.exit(
-            "No API key found. Easiest fix: create a file named dutch.txt in this folder\n"
-            f"  ({APP_DIR})\n"
-            "containing only your key (sk-ant-...). Get a key at https://platform.claude.com/\n"
-            "Alternatively, set the ANTHROPIC_API_KEY environment variable."
-        )
     if not MODULES:
         sys.exit(f"No module-*.md files found in {COURSE_DIR} — run from inside dutch-a2/app/.")
-    voice_note = "on (ElevenLabs)" if VOICE else "off — add elevenlabs.txt to enable"
+    init_keys()
+    voice_note = "on (ElevenLabs)" if VOICE else "off (no ElevenLabs key entered)"
     print(f"Dutch A2 tutor running on http://localhost:{PORT}")
     print(f"  model: {MODEL} · voice: {voice_note}")
     print("Press Ctrl+C to stop.")

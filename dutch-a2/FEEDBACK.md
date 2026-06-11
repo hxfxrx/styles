@@ -26,6 +26,9 @@ _(paste `klaar` outputs here; persistently weak topics drive course improvements
 
 ## Processed
 
+- 2026-06-11 — User request: no stored API keys. App now prompts for keys at every startup
+  (memory only); key-file mechanism and docs removed. (v4)
+
 - 2026-06-11 — Voice Phases 1+2 built into the local app (TTS, dictation, read-aloud,
   spoken answers, voice gesprek). Pending: live test with a real ElevenLabs key. (v3)
 

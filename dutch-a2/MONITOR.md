@@ -100,9 +100,9 @@ external APIs today (watchlist W2 would change that). The claude.ai tutor keeps 
 text-based modes; the local app becomes the voice trainer. They share the same course files
 and the same topic-mastery model.
 
-**Key handling:** same pattern as the Claude key — the ElevenLabs API key goes in a
-gitignored `elevenlabs.txt` next to `tutor.py` (already in `.gitignore`). The app works
-fully without it; voice features simply don't appear until the file exists.
+**Key handling:** no keys on disk, ever. The app prompts for the Claude key (required) and
+the ElevenLabs key (optional) at every startup; both live only in process memory for that
+run. Skipping the ElevenLabs prompt runs the app text-only.
 
 > **Status: Phases 1 and 2 built (2026-06-11, v3).** Phase 3 remains a watchlist
 > evaluation (W4/W5). One deviation from the plan below: vocab-audio lives in the
