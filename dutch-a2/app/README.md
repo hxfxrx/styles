@@ -22,12 +22,24 @@ an interactive tutor powered by Claude. It:
 
 ## Setup (one time)
 
-```bash
-pip install anthropic
-export ANTHROPIC_API_KEY=sk-ant-...   # your key
-```
+1. Install the SDK:
 
-On Windows (PowerShell): `setx ANTHROPIC_API_KEY "sk-ant-..."` then open a new terminal.
+   ```bash
+   pip install anthropic
+   ```
+
+2. Get an API key at <https://platform.claude.com/> → Settings → API keys → Create key.
+
+3. Create a file named **`dutch.txt`** in this folder (`dutch-a2/app/`) containing only your
+   key, e.g.:
+
+   ```
+   sk-ant-api03-xxxxxxxxxxxxxxxx
+   ```
+
+   That's it — the app reads it automatically. (The file is gitignored, so it can't be
+   accidentally committed.) If you prefer environment variables, setting
+   `ANTHROPIC_API_KEY` works too and takes precedence.
 
 ## Run
 
@@ -42,15 +54,15 @@ Then open **http://localhost:8765** in your browser. Stop the server with `Ctrl+
 
 - `tutor.py` is a tiny local web server. When you ask for an exercise, it sends the relevant
   course module plus a summary of your per-topic performance to the Claude API
-  (`claude-opus-4-8` by default) and asks for a structured exercise; grading works the same
+  (`claude-sonnet-4-6` by default) and asks for a structured exercise; grading works the same
   way. The module text is prompt-cached, so repeated exercises are fast and cheap.
 - Your progress lives in `dutch-a2/app/progress.json` on your machine — delete it to start
   fresh. Nothing is stored anywhere else; the only network traffic is to the Claude API.
-- Set `CLAUDE_MODEL=claude-sonnet-4-6` (cheaper/faster) or `PORT=9000` via environment
+- Set `CLAUDE_MODEL=claude-opus-4-8` (smarter, pricier) or `PORT=9000` via environment
   variables if you want to change the defaults.
 
 ## Cost
 
 Each exercise or chat turn is one or two API calls of a few thousand (mostly cached) input
-tokens and a short output — typically a cent or two per exercise on Opus, less on Sonnet.
-A daily 20-exercise session costs well under a dollar.
+tokens and a short output — typically well under a cent per exercise on Sonnet 4.6.
+A daily 20-exercise session costs a few cents.

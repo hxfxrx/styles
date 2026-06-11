@@ -21,7 +21,7 @@ except ImportError:
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 COURSE_DIR = os.path.dirname(APP_DIR)
 PROGRESS_FILE = os.path.join(APP_DIR, "progress.json")
-MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-4-8")
+MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
 PORT = int(os.environ.get("PORT", "8765"))
 
 TOPICS = [
@@ -88,7 +88,20 @@ CHAT_SCHEMA = {
     "additionalProperties": False,
 }
 
-client = anthropic.Anthropic()
+def resolve_api_key():
+    """Use ANTHROPIC_API_KEY if set; otherwise read dutch.txt next to this script."""
+    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        try:
+            with open(os.path.join(APP_DIR, "dutch.txt"), encoding="utf-8") as f:
+                key = f.read().strip()
+        except FileNotFoundError:
+            pass
+    return key
+
+
+API_KEY = resolve_api_key()
+client = anthropic.Anthropic(api_key=API_KEY or None)
 _lock = threading.Lock()
 
 
@@ -294,9 +307,13 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        sys.exit("Set your API key first:  export ANTHROPIC_API_KEY=sk-ant-...\n"
-                 "Get one at https://platform.claude.com/")
+    if not API_KEY:
+        sys.exit(
+            "No API key found. Easiest fix: create a file named dutch.txt in this folder\n"
+            f"  ({APP_DIR})\n"
+            "containing only your key (sk-ant-...). Get a key at https://platform.claude.com/\n"
+            "Alternatively, set the ANTHROPIC_API_KEY environment variable."
+        )
     if not MODULES:
         sys.exit(f"No module-*.md files found in {COURSE_DIR} — run from inside dutch-a2/app/.")
     print(f"Dutch A2 tutor running on http://localhost:{PORT}  (model: {MODEL})")
